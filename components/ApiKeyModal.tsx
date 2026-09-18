@@ -96,8 +96,8 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onKey
               <i className="fas fa-key text-base"></i>
             </div>
             <div>
-              <h3 className="text-lg font-black text-blue-950">Mobile / APK Settings</h3>
-              <p className="text-xs text-slate-500">Gemini AI Configuration</p>
+              <h3 className="text-lg font-black text-blue-950">Settings</h3>
+              <p className="text-xs text-slate-500">Gemini AI Configuration (Optional)</p>
             </div>
           </div>
           <button 
@@ -111,10 +111,10 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onKey
         {/* Current status */}
         <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-xs space-y-1">
           <div className="flex justify-between items-center">
-            <span className="text-slate-500 font-medium">Status:</span>
-            <span className={`font-bold flex items-center gap-1.5 ${activeKey ? 'text-emerald-700' : 'text-amber-600'}`}>
-              <span className={`w-2 h-2 rounded-full ${activeKey ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
-              {activeKey ? (hasCustomKey ? 'Custom Key Active' : 'Bundled Key Active') : 'Key Required'}
+            <span className="text-slate-500 font-medium">Fact-Checking Mode:</span>
+            <span className="font-bold flex items-center gap-1.5 text-emerald-700">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              {activeKey ? (hasCustomKey ? 'Gemini AI + Web Grounding' : 'Gemini AI Active') : 'Live Web Search (No Key Required)'}
             </span>
           </div>
           {activeKey && (
@@ -128,17 +128,17 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onKey
         {/* Input section */}
         <div className="space-y-2">
           <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-            Enter Gemini API Key
+            Optional Gemini API Key
           </label>
           <input 
             type="password"
             value={inputKey}
             onChange={(e) => setInputKey(e.target.value)}
-            placeholder="AIzaSy..."
+            placeholder="AIzaSy... (Optional)"
             className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-900 focus:bg-white transition-all font-mono text-slate-800"
           />
           <p className="text-[11px] text-slate-500 leading-relaxed">
-            Your key is saved securely on your device (in local storage). You can get a free key from Google AI Studio.
+            News verification works automatically without an API key by analyzing live web sources and knowledge archives. Adding a Gemini key is optional.
           </p>
         </div>
 

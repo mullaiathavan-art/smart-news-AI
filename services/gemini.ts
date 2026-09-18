@@ -1,5 +1,6 @@
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import { CredibilityLevel, VerificationResult, GroundingSource, TrendingNewsItem } from "../types";
+import { verifyNewsWithoutApiKey, fetchLiveWebTrendingNews } from "./webVerifier";
 
 export function getEffectiveApiKey(): string {
   if (typeof window !== 'undefined') {
@@ -77,60 +78,19 @@ const FALLBACK_TRENDING_NEWS: TrendingNewsItem[] = [
 
 export async function fetchLatestNews(): Promise<TrendingNewsItem[]> {
   const apiKey = getEffectiveApiKey();
-  if (!apiKey) {
-    console.warn("API Key is missing. Serving cached trending headlines.");
-    return FALLBACK_TRENDING_NEWS;
-  }
   
-  const ai = new GoogleGenAI({ apiKey });
-  const model = 'gemini-3-flash-preview';
-  const prompt = `Find 6 of the most significant and trending breaking news stories globally from the last 12-24 hours. Provide in structured format.`;
-
-  try {
-    const response: GenerateContentResponse = await ai.models.generateContent({
-      model: model,
-      contents: prompt,
-      config: {
-        tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              headline: { type: Type.STRING },
-              category: { type: Type.STRING },
-              timestamp: { type: Type.STRING }
-            },
-            required: ["headline", "category", "timestamp"]
-          }
-        }
-      },
-    });
-
-    const newsItems: TrendingNewsItem[] = JSON.parse(response.text?.trim() || "[]");
-    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    const sources: GroundingSource[] = chunks
-      .filter(chunk => chunk.web)
-      .map(chunk => ({
-        title: chunk.web?.title || "Source Reference",
-        uri: chunk.web?.uri || ""
-      }));
-
-    if (newsItems.length > 0) {
-      return newsItems.map(item => ({
-        ...item,
-        sources: sources.length > 0 ? sources : [{ title: "Global Verified Wire", uri: "https://news.google.com" }]
-      }));
-    }
-    return FALLBACK_TRENDING_NEWS;
-  } catch (error: any) {
-    console.warn("Fetch News with Search Grounding failed, attempting without search:", error?.message);
+  // If API key is available, try Gemini with Search Grounding first
+  if (apiKey) {
     try {
-      const response = await ai.models.generateContent({
+      const ai = new GoogleGenAI({ apiKey });
+      const model = 'gemini-3-flash-preview';
+      const prompt = `Find 6 of the most significant and trending breaking news stories globally from the last 12-24 hours. Provide in structured format.`;
+
+      const response: GenerateContentResponse = await ai.models.generateContent({
         model: model,
         contents: prompt,
         config: {
+          tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.ARRAY,
@@ -144,21 +104,49 @@ export async function fetchLatestNews(): Promise<TrendingNewsItem[]> {
               required: ["headline", "category", "timestamp"]
             }
           }
-        }
+        },
       });
-      const items: TrendingNewsItem[] = JSON.parse(response.text?.trim() || "[]");
-      if (items.length > 0) return items;
-    } catch (e) {
-      console.warn("Fallback news generation failed, using curated trending list:", e);
+
+      const newsItems: TrendingNewsItem[] = JSON.parse(response.text?.trim() || "[]");
+      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+      const sources: GroundingSource[] = chunks
+        .filter(chunk => chunk.web)
+        .map(chunk => ({
+          title: chunk.web?.title || "Source Reference",
+          uri: chunk.web?.uri || ""
+        }));
+
+      if (newsItems.length > 0) {
+        return newsItems.map(item => ({
+          ...item,
+          sources: sources.length > 0 ? sources : [{ title: "Global Verified Wire", uri: "https://news.google.com" }]
+        }));
+      }
+    } catch (error: any) {
+      console.warn("Gemini fetch trending failed, attempting live web feed:", error?.message);
     }
-    return FALLBACK_TRENDING_NEWS;
   }
+
+  // Without API key (or if Gemini failed), fetch live breaking news directly from the web RSS feed
+  try {
+    const liveWebNews = await fetchLiveWebTrendingNews();
+    if (liveWebNews && liveWebNews.length > 0) {
+      return liveWebNews;
+    }
+  } catch (webErr) {
+    console.warn("Live web trending news fetch error:", webErr);
+  }
+
+  // Offline / network fallback
+  return FALLBACK_TRENDING_NEWS;
 }
 
 export async function verifyNews(input: string): Promise<VerificationResult> {
   const apiKey = getEffectiveApiKey();
+  
+  // Without API key: verify directly from the live web (Google News RSS & Wikipedia Factual Archive)
   if (!apiKey) {
-    throw new Error("API_KEY_REQUIRED");
+    return await verifyNewsWithoutApiKey(input);
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -230,34 +218,9 @@ export async function verifyNews(input: string): Promise<VerificationResult> {
     });
     usedGrounding = true;
   } catch (searchError: any) {
-    console.warn("Search Grounding attempt failed (quota or network limit). Retrying without search tool:", searchError?.message);
-    
-    // If invalid API key, fail immediately with clear feedback
-    if (searchError?.message?.includes("API_KEY_INVALID") || searchError?.status === 400 || searchError?.message?.includes("API key not valid")) {
-      throw new Error("Invalid Gemini API Key. Please check or re-enter your API key in Settings.");
-    }
-    
-    // Fallback: Generate analysis without search grounding tool
-    try {
-      response = await ai.models.generateContent({
-        model: model,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          thinkingConfig: { thinkingBudget: 0 },
-          responseSchema: schema
-        },
-      });
-    } catch (fallbackError: any) {
-      console.error("Gemini Fallback Verification Error:", fallbackError);
-      if (fallbackError?.message?.includes("API_KEY_INVALID") || fallbackError?.message?.includes("API key not valid")) {
-        throw new Error("Invalid Gemini API Key. Please check or re-enter your API key in Settings.");
-      }
-      if (fallbackError?.message?.includes("RESOURCE_EXHAUSTED") || fallbackError?.status === 429) {
-        throw new Error("Gemini API Rate Limit Exceeded. Please try again in a few moments or use your own API key.");
-      }
-      throw new Error("Failed to verify news content. Please check your connection or API key.");
-    }
+    console.warn("Gemini Search Grounding attempt failed, falling back to real-time web verification:", searchError?.message);
+    // Directly fall back to open web fact-checking engine
+    return await verifyNewsWithoutApiKey(input);
   }
 
   try {

@@ -127,9 +127,9 @@ const App: React.FC = () => {
         history: [result, ...prev.history].slice(0, 10),
       }));
     } catch (err: any) {
-      let message = err.message || 'An unexpected error occurred.';
+      let message = err.message || 'An unexpected error occurred while verifying the claim.';
       if (message === 'API_KEY_REQUIRED') {
-        message = 'Please configure your Gemini API Key in Settings to begin fact-checking claims.';
+        message = 'Please check your internet connection to fetch live web verification.';
       }
       setState(prev => ({
         ...prev,
@@ -235,9 +235,13 @@ const App: React.FC = () => {
               Unmask the Truth. <br/>
               <span className="text-blue-700">In Real-Time.</span>
             </h1>
-            <p className="text-base md:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
-              Verify any news headline, social media claim, or URL using Google's most powerful AI search grounding.
+            <p className="text-base md:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed mb-4">
+              Verify any news headline, social media claim, or topic directly from live web sources — no API key required.
             </p>
+            <div className="inline-flex items-center gap-2 bg-blue-50 border border-blue-200/80 px-3 py-1 rounded-full text-blue-900 text-xs font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Live Web Fact-Checking Active</span>
+            </div>
           </div>
 
           <div className="bg-white p-2 md:p-3 rounded-3xl shadow-xl border border-slate-200 mb-10 transition-all focus-within:ring-4 ring-blue-900/10">
