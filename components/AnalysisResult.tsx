@@ -31,7 +31,15 @@ export const AnalysisResult: React.FC<Props> = ({ result }) => {
                   <p className="text-xs font-medium text-blue-950 group-hover:text-blue-800 line-clamp-1">
                     {source.title}
                   </p>
-                  <span className="text-[10px] text-slate-500 break-all">{new URL(source.uri).hostname}</span>
+                  <span className="text-[10px] text-slate-500 break-all">
+                    {(() => {
+                      try {
+                        return new URL(source.uri).hostname.replace(/^www\./, '');
+                      } catch {
+                        return source.uri || 'Source';
+                      }
+                    })()}
+                  </span>
                 </a>
               ))
             ) : (

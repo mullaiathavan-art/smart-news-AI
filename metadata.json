@@ -2,5 +2,7 @@
   "name": "Smart News Analyser",
   "description": "A real-time news verification system using Gemini 3 and Google Search grounding to detect misinformation, assess source credibility, and provide evidence-based fact-checking.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

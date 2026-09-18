@@ -3,28 +3,25 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   // Load environment variables from .env files
-  // Fix: Use bracket notation for cwd() to avoid TypeScript error where the process type definition in the current environment is missing the method.
   const env = loadEnv(mode, process['cwd'](), '');
+
+  const rawKey = process.env.GEMINI_API_KEY || env.GEMINI_API_KEY || process.env.API_KEY || env.API_KEY || '';
+  const isPlaceholder = !rawKey || rawKey === 'your_gemini_api_key_here' || rawKey.includes('your_');
+  const resolvedKey = isPlaceholder ? '' : rawKey;
 
   return {
     plugins: [react()],
     define: {
-      // Prioritize the environment variable (Netlify) then the .env file (Local)
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || process.env.API_KEY || ''),
+      'process.env.API_KEY': JSON.stringify(resolvedKey),
+      'process.env.GEMINI_API_KEY': JSON.stringify(resolvedKey),
     },
     build: {
       outDir: 'dist',
       sourcemap: false,
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            vendor: ['react', 'react-dom', '@google/genai'],
-          },
-        },
-      },
     },
     server: {
-      port: 5173,
+      host: '0.0.0.0',
+      port: 3000,
       strictPort: true,
     }
   };
